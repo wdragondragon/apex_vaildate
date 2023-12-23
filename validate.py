@@ -44,7 +44,7 @@ def validate():
 
         # 如果找到了对应的机器码，那么返回权限字段
         if machine is not None:
-            if machine.access_granted and not is_expired(machine.expiration_time):
+            if machine.access_granted and check_expired(machine.expiration_time):
                 return jsonify({"access_granted": 1})
             else:
                 return jsonify({"access_granted": 0, "error": "授权已过期"}), 400
@@ -57,8 +57,8 @@ def validate():
     return jsonify({"access_granted": 0})
 
 
-def is_expired(expiration_time):
-    return expiration_time is None or datetime.utcnow() > expiration_time
+def check_expired(expiration_time):
+    return expiration_time is None or datetime.utcnow() < expiration_time
 
 
 @app.route('/refresh_files', methods=['GET'])
