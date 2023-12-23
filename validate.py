@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from flask import Flask, request, jsonify, send_file
 from sqlalchemy import create_engine, Table, MetaData
@@ -43,7 +44,10 @@ def validate():
 
         # 如果找到了对应的机器码，那么返回权限字段
         if machine is not None:
-            return jsonify({"access_granted": machine.access_granted})
+            if machine.access_granted and not is_expired(machine.expiration_time):
+                return jsonify({"access_granted": 1})
+            else:
+                return jsonify({"access_granted": 0, "error": "授权已过期"}), 400
         # 如果没有找到对应的机器码，那么添加新的记录，并设置access_granted为False
         print("没有找到对应的机器码，添加新的记录")
         new_machine = machines.insert().values(machine_code=machine_code, access_granted=0)
@@ -51,6 +55,10 @@ def validate():
         connection.commit()
     # 如果没有找到对应的机器码，那么不允许运行程序
     return jsonify({"access_granted": 0})
+
+
+def is_expired(expiration_time):
+    return expiration_time is None or datetime.utcnow() > expiration_time
 
 
 @app.route('/refresh_files', methods=['GET'])
