@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 
 from flask import Flask, request, jsonify, send_file
-from sqlalchemy import create_engine, Table, MetaData
+from sqlalchemy import create_engine, Table, MetaData, and_
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import select
 
@@ -36,9 +36,15 @@ def validate():
     if not machine_code:
         return jsonify({"error": "机器码未提供"}), 400
 
+    validate_type = request.form.get('validate_type')
+
+    if validate_type is None:
+        validate_type = 'ai'
+
     # 查询数据库
     with engine.connect() as connection:
         query = select(machines).where(machines.c.machine_code == machine_code)
+        query = query.where(and_(machines.c.validate_type == validate_type))
         result = connection.execute(query)
         machine = result.fetchone()
 
@@ -51,11 +57,13 @@ def validate():
         # 如果没有找到对应的机器码，那么添加新的记录，并设置access_granted为False
         print("没有找到对应的机器码，添加新的记录")
         new_machine = machines.insert().values(machine_code=machine_code, access_granted=1,
-                                               expiration_time=datetime.now() + timedelta(days=1))
+                                               expiration_time=datetime.now() + timedelta(days=1),
+                                               validate_type=validate_type)
         connection.execute(new_machine)
         connection.commit()
     # 如果没有找到对应的机器码，那么不允许运行程序
     return jsonify({"access_granted": 0})
+
 
 def check_expired(expiration_time):
     return expiration_time is None or datetime.utcnow() < expiration_time
